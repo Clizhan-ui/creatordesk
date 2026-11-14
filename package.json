@@ -11,9 +11,6 @@
     "test": "node scripts/test-runner.mjs",
     "audit": "node scripts/security-audit.mjs"
   },
-  "engines": {
-    "node": "22.x"
-  },
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "jose": "^5.9.6",

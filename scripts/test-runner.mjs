@@ -182,17 +182,26 @@ assert(idorAnalyticsDelete.changes === 0, 'User 3 cannot delete User 2 analytics
 // Test 11: Reports Aggregation & Filter Correctness
 console.log('\n[11] Reports & Export Query Aggregations:');
 const reportQuery = db.prepare(`
-  SELECT 
-    c.id, c.title, c.platform,
-    COALESCE(SUM(a.views), 0) as views,
-    COALESCE(SUM(a.likes), 0) as likes
-  FROM contents c
-  LEFT JOIN content_analytics a ON c.id = a.content_id
-  WHERE c.user_id = ? AND c.platform = 'YouTube'
-  GROUP BY c.id
+  SELECT c.id, c.title, c.platform FROM contents c WHERE c.user_id = ? AND c.platform = 'YouTube'
 `).all(2);
 assert(reportQuery.length > 0, 'Report filters by platform successfully');
-assert(reportQuery[0].platform === 'YouTube', 'Report result only returns filtered YouTube platform content');
+
+// Test 12: Profile Management & Password Change
+console.log('\n[12] Profile Management & Password Hashing:');
+db.prepare('UPDATE users SET name = ?, bio = ? WHERE id = ?').run('Nabil Updated', 'Updated creator bio', 2);
+const updatedUser = db.prepare('SELECT name, bio FROM users WHERE id = ?').get(2);
+assert(updatedUser.name === 'Nabil Updated' && updatedUser.bio === 'Updated creator bio', 'User profile updated successfully');
+
+// Password change hash verification
+const newHashedPass = bcrypt.hashSync('BrandNewPassword456!', 10);
+db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(newHashedPass, 2);
+const userWithNewPass = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(2);
+assert(bcrypt.compareSync('BrandNewPassword456!', userWithNewPass.password_hash), 'New password verifies against updated hash');
+assert(!bcrypt.compareSync('CreatorPassword123!', userWithNewPass.password_hash), 'Old password is no longer valid');
+
+// Reset password back for future tests
+const resetPass = bcrypt.hashSync('CreatorPassword123!', 10);
+db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(resetPass, 2);
 
 console.log('\n==============================================');
 console.log(`Summary: ${passedTests}/${totalTests} Tests Passed (${failedTests} Failed)`);

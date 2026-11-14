@@ -159,6 +159,26 @@ assert(updatedContent.category === 'Web Dev', 'Content updated category successf
 const idorContentDelete = db.prepare('DELETE FROM contents WHERE id = ? AND user_id = ?').run(newContentId, 3);
 assert(idorContentDelete.changes === 0, 'User 3 cannot delete User 2 content item (IDOR protected)');
 
+// Test 10: Performance Analytics Recording & Engagement Calculation
+console.log('\n[10] Performance Analytics Logging & Rate Calculations:');
+const logMetric = db.prepare(`
+  INSERT INTO content_analytics (content_id, user_id, views, likes, comments, shares, followers_count, recorded_at)
+  VALUES (?, 2, 20000, 1600, 200, 100, 6500, CURRENT_TIMESTAMP)
+`).run(newContentId);
+const logId = Number(logMetric.lastInsertRowid);
+assert(logId > 0, 'Performance metrics logged successfully');
+
+const metric = db.prepare('SELECT * FROM content_analytics WHERE id = ? AND user_id = ?').get(logId, 2);
+assert(metric && metric.views === 20000 && metric.likes === 1600, 'Metric values stored accurately');
+
+const engagementSum = metric.likes + metric.comments + metric.shares;
+const engagementRate = ((engagementSum / metric.views) * 100).toFixed(2);
+assert(engagementRate === '9.50', `Calculated engagement rate matches expected: ${engagementRate}% = 9.50%`);
+
+// IDOR check on analytics delete
+const idorAnalyticsDelete = db.prepare('DELETE FROM content_analytics WHERE id = ? AND user_id = ?').run(logId, 3);
+assert(idorAnalyticsDelete.changes === 0, 'User 3 cannot delete User 2 analytics log');
+
 console.log('\n==============================================');
 console.log(`Summary: ${passedTests}/${totalTests} Tests Passed (${failedTests} Failed)`);
 console.log('==============================================');

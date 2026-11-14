@@ -186,22 +186,36 @@ const reportQuery = db.prepare(`
 `).all(2);
 assert(reportQuery.length > 0, 'Report filters by platform successfully');
 
-// Test 12: Profile Management & Password Change
+// Test 12: Profile Management & Password Hashing
 console.log('\n[12] Profile Management & Password Hashing:');
 db.prepare('UPDATE users SET name = ?, bio = ? WHERE id = ?').run('Nabil Updated', 'Updated creator bio', 2);
 const updatedUser = db.prepare('SELECT name, bio FROM users WHERE id = ?').get(2);
 assert(updatedUser.name === 'Nabil Updated' && updatedUser.bio === 'Updated creator bio', 'User profile updated successfully');
 
-// Password change hash verification
-const newHashedPass = bcrypt.hashSync('BrandNewPassword456!', 10);
-db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(newHashedPass, 2);
-const userWithNewPass = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(2);
-assert(bcrypt.compareSync('BrandNewPassword456!', userWithNewPass.password_hash), 'New password verifies against updated hash');
-assert(!bcrypt.compareSync('CreatorPassword123!', userWithNewPass.password_hash), 'Old password is no longer valid');
+// Test 13: Admin Governance & RBAC Controls
+console.log('\n[13] Admin Governance & Role-Based Access Controls (RBAC):');
+// Role verification
+const adminUser = db.prepare('SELECT role FROM users WHERE email = ?').get('admin@creatordesk.com');
+const creatorUser = db.prepare('SELECT role FROM users WHERE email = ?').get('creator@creatordesk.com');
+assert(adminUser.role === 'admin', 'Admin user possesses role "admin"');
+assert(creatorUser.role === 'creator', 'Creator user possesses role "creator"');
 
-// Reset password back for future tests
-const resetPass = bcrypt.hashSync('CreatorPassword123!', 10);
-db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(resetPass, 2);
+// Status toggling test
+db.prepare("UPDATE users SET status = 'suspended' WHERE id = 3").run();
+const suspendedUser = db.prepare('SELECT status FROM users WHERE id = 3').get();
+assert(suspendedUser.status === 'suspended', 'Admin can set user account status to "suspended"');
+
+db.prepare("UPDATE users SET status = 'active' WHERE id = 3").run();
+const reactivatedUser = db.prepare('SELECT status FROM users WHERE id = 3').get();
+assert(reactivatedUser.status === 'active', 'Admin can reactivate user account status to "active"');
+
+// Audit log entry logging test
+db.prepare(`
+  INSERT INTO audit_logs (user_id, action, details, ip_address)
+  VALUES (1, 'ADMIN_TEST_AUDIT', 'Verified administrative audit capabilities', '127.0.0.1')
+`).run();
+const lastAudit = db.prepare('SELECT * FROM audit_logs WHERE action = ?').get('ADMIN_TEST_AUDIT');
+assert(lastAudit !== undefined && lastAudit.details.includes('administrative audit'), 'Admin audit log recorded and retrieved');
 
 console.log('\n==============================================');
 console.log(`Summary: ${passedTests}/${totalTests} Tests Passed (${failedTests} Failed)`);

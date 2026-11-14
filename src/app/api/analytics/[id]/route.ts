@@ -20,7 +20,7 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
 
   try {
     const db = getDb();
-    const existing = db.prepare('SELECT id, user_id FROM content_analytics WHERE id = ?').get(logId) as
+    const existing = (await db.prepare('SELECT id, user_id FROM content_analytics WHERE id = ?').get(logId)) as
       | { id: number; user_id: number }
       | undefined;
 
@@ -32,7 +32,7 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
       return NextResponse.json({ error: 'Forbidden: You do not own this analytics log' }, { status: 403 });
     }
 
-    db.prepare('DELETE FROM content_analytics WHERE id = ? AND user_id = ?').run(logId, session.id);
+    await db.prepare('DELETE FROM content_analytics WHERE id = ? AND user_id = ?').run(logId, session.id);
 
     return NextResponse.json({ success: true, message: 'Analytics log deleted' });
   } catch (error: any) {

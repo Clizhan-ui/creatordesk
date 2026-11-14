@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     }
 
     const db = getDb();
-    const user = db.prepare('SELECT id, password_hash, email FROM users WHERE id = ?').get(session.id) as
+    const user = (await db.prepare('SELECT id, password_hash, email FROM users WHERE id = ?').get(session.id)) as
       | User
       | undefined;
 
@@ -41,14 +41,14 @@ export async function POST(req: NextRequest) {
     // Hash new password
     const newHash = await hashPassword(newPassword);
 
-    db.prepare(`
+    await db.prepare(`
       UPDATE users
       SET password_hash = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `).run(newHash, session.id);
 
     // Audit log
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO audit_logs (user_id, action, details, ip_address)
       VALUES (?, 'PASSWORD_CHANGED', 'User successfully updated password', ?)
     `).run(session.id, req.headers.get('x-forwarded-for') || '127.0.0.1');

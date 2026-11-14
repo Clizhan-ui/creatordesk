@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
 
   query += ' ORDER BY c.created_at DESC';
 
-  const contents = db.prepare(query).all(...params) as ContentItem[];
+  const contents = (await db.prepare(query).all(...params)) as ContentItem[] || [];
 
   return NextResponse.json({ contents });
 }
@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
       : 'Draft';
 
     const db = getDb();
-    const result = db.prepare(`
+    const result = await db.prepare(`
       INSERT INTO contents (user_id, title, description, thumbnail_url, platform, category, content_url, published_at, status)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
       cleanStatus
     );
 
-    const createdContent = db.prepare('SELECT * FROM contents WHERE id = ?').get(result.lastInsertRowid);
+    const createdContent = await db.prepare('SELECT * FROM contents WHERE id = ?').get(result.lastInsertRowid);
 
     return NextResponse.json({ content: createdContent, message: 'Content created successfully' }, { status: 201 });
   } catch (error: any) {

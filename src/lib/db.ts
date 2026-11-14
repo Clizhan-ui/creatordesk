@@ -1,31 +1,83 @@
-import { DatabaseSync } from 'node:sqlite';
 import path from 'path';
 import fs from 'fs';
 
-// Database file path configured via env or default
-const dbPath = process.env.DATABASE_PATH || 'creatordesk.db';
-const resolvedDbPath = path.isAbsolute(dbPath)
-  ? dbPath
-  : path.join(process.cwd(), dbPath);
+let pgClient: any = null;
+let sqliteInstance: any = null;
 
-// Ensure directory exists
-const dir = path.dirname(resolvedDbPath);
-if (!fs.existsSync(dir)) {
-  fs.mkdirSync(dir, { recursive: true });
-}
+export function getDb(): any {
+  if (process.env.DATABASE_URL) {
+    if (!pgClient) {
+      const postgres = require('postgres');
+      pgClient = postgres(process.env.DATABASE_URL, {
+        ssl: 'require',
+        max: 10,
+        idle_timeout: 20,
+        connect_timeout: 10,
+      });
+    }
 
-// Global database instance to avoid multiple file locks in development hot-reload
-let dbInstance: DatabaseSync | null = null;
+    return {
+      prepare(sql: string) {
+        let pIndex = 0;
+        let pgSql = sql.replace(/\?/g, () => `$${++pIndex}`);
+        pgSql = pgSql.replace(/INSERT\s+OR\s+IGNORE\s+INTO/gi, 'INSERT INTO');
 
-export function getDb(): DatabaseSync {
-  if (!dbInstance) {
-    dbInstance = new DatabaseSync(resolvedDbPath);
-    // Enable WAL mode and foreign keys for high performance and integrity
-    dbInstance.exec('PRAGMA journal_mode = WAL;');
-    dbInstance.exec('PRAGMA foreign_keys = ON;');
-    initSchema(dbInstance);
+        return {
+          async get(...params: any[]) {
+            const rows = await pgClient.unsafe(pgSql, params);
+            return rows[0] || undefined;
+          },
+          async all(...params: any[]) {
+            const rows = await pgClient.unsafe(pgSql, params);
+            return rows;
+          },
+          async run(...params: any[]) {
+            let runSql = pgSql;
+            if (runSql.trim().toUpperCase().startsWith('INSERT') && !runSql.toUpperCase().includes('RETURNING')) {
+              runSql += ' RETURNING id';
+            }
+            const rows = await pgClient.unsafe(runSql, params);
+            return {
+              changes: rows.count ?? rows.length,
+              lastInsertRowid: rows[0]?.id,
+            };
+          },
+        };
+      },
+      exec(sql: string) {
+        return pgClient.unsafe(sql);
+      },
+    };
   }
-  return dbInstance;
+
+  // SQLite fallback for local development without DATABASE_URL
+  if (!sqliteInstance) {
+    const dbPath = process.env.DATABASE_PATH || 'creatordesk.db';
+    const resolvedDbPath = path.isAbsolute(dbPath)
+      ? dbPath
+      : path.join(process.cwd(), dbPath);
+
+    const dir = path.dirname(resolvedDbPath);
+    if (!fs.existsSync(dir)) {
+      try {
+        fs.mkdirSync(dir, { recursive: true });
+      } catch {
+        // ignore
+      }
+    }
+
+    try {
+      const { DatabaseSync } = require('node:sqlite');
+      sqliteInstance = new DatabaseSync(resolvedDbPath);
+      sqliteInstance.exec('PRAGMA journal_mode = WAL;');
+      sqliteInstance.exec('PRAGMA foreign_keys = ON;');
+      initSchema(sqliteInstance);
+    } catch (err) {
+      console.warn('SQLite init warning:', err);
+    }
+  }
+
+  return sqliteInstance;
 }
 
 export function initSchema(db: DatabaseSync) {

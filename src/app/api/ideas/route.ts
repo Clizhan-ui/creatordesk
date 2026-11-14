@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
 
   query += ' ORDER BY created_at DESC';
 
-  const ideas = db.prepare(query).all(...params) as ContentIdea[];
+  const ideas = (await db.prepare(query).all(...params)) as ContentIdea[] || [];
 
   return NextResponse.json({ ideas });
 }
@@ -66,12 +66,12 @@ export async function POST(req: NextRequest) {
       : 'New Idea';
 
     const db = getDb();
-    const result = db.prepare(`
+    const result = await db.prepare(`
       INSERT INTO content_ideas (user_id, title, description, category, platform, status)
       VALUES (?, ?, ?, ?, ?, ?)
     `).run(session.id, cleanTitle, description?.trim() || null, cleanCategory, cleanPlatform, cleanStatus);
 
-    const createdIdea = db.prepare('SELECT * FROM content_ideas WHERE id = ?').get(result.lastInsertRowid);
+    const createdIdea = await db.prepare('SELECT * FROM content_ideas WHERE id = ?').get(result.lastInsertRowid);
 
     return NextResponse.json({ idea: createdIdea, message: 'Idea created successfully' }, { status: 201 });
   } catch (error: any) {

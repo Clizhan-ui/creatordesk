@@ -20,7 +20,7 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
 
   try {
     const db = getDb();
-    const existing = db.prepare('SELECT * FROM content_plans WHERE id = ?').get(planId) as any;
+    const existing = (await db.prepare('SELECT * FROM content_plans WHERE id = ?').get(planId)) as any;
 
     if (!existing) {
       return NextResponse.json({ error: 'Plan not found' }, { status: 404 });
@@ -45,7 +45,7 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
       ? status
       : existing.status;
 
-    db.prepare(`
+    await db.prepare(`
       UPDATE content_plans
       SET title = ?, description = ?, platform = ?, category = ?, scheduled_at = ?, status = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ? AND user_id = ?
@@ -63,16 +63,16 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
 
     // If transitioned to 'Published' from another status, auto-create in contents table if not already existing
     if (existing.status !== 'Published' && cleanStatus === 'Published') {
-      const alreadyInContent = db.prepare('SELECT id FROM contents WHERE user_id = ? AND title = ?').get(session.id, cleanTitle);
+      const alreadyInContent = await db.prepare('SELECT id FROM contents WHERE user_id = ? AND title = ?').get(session.id, cleanTitle);
       if (!alreadyInContent) {
-        db.prepare(`
+        await db.prepare(`
           INSERT INTO contents (user_id, title, description, platform, category, published_at, status)
           VALUES (?, ?, ?, ?, ?, ?, 'Published')
         `).run(session.id, cleanTitle, description?.trim() || existing.description, cleanPlatform, cleanCategory, cleanScheduledAt);
       }
     }
 
-    const updated = db.prepare('SELECT * FROM content_plans WHERE id = ?').get(planId);
+    const updated = await db.prepare('SELECT * FROM content_plans WHERE id = ?').get(planId);
 
     return NextResponse.json({ plan: updated, message: 'Plan updated successfully' });
   } catch (error: any) {
@@ -95,7 +95,7 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
 
   try {
     const db = getDb();
-    const existing = db.prepare('SELECT id, user_id FROM content_plans WHERE id = ?').get(planId) as
+    const existing = (await db.prepare('SELECT id, user_id FROM content_plans WHERE id = ?').get(planId)) as
       | { id: number; user_id: number }
       | undefined;
 
@@ -107,7 +107,7 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
       return NextResponse.json({ error: 'Forbidden: You do not own this plan' }, { status: 403 });
     }
 
-    db.prepare('DELETE FROM content_plans WHERE id = ? AND user_id = ?').run(planId, session.id);
+    await db.prepare('DELETE FROM content_plans WHERE id = ? AND user_id = ?').run(planId, session.id);
 
     return NextResponse.json({ success: true, message: 'Plan deleted successfully' });
   } catch (error: any) {

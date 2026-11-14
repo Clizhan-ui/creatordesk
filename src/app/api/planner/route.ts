@@ -37,13 +37,13 @@ export async function GET(req: NextRequest) {
   }
 
   if (month) {
-    query += " AND strftime('%Y-%m', scheduled_at) = ?";
+    query += " AND SUBSTR(CAST(scheduled_at AS TEXT), 1, 7) = ?";
     params.push(month);
   }
 
   query += ' ORDER BY scheduled_at ASC';
 
-  const plans = db.prepare(query).all(...params) as ContentPlan[];
+  const plans = (await db.prepare(query).all(...params)) as ContentPlan[] || [];
 
   return NextResponse.json({ plans });
 }
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
       : 'Planned';
 
     const db = getDb();
-    const result = db.prepare(`
+    const result = await db.prepare(`
       INSERT INTO content_plans (user_id, title, description, platform, category, scheduled_at, status, notes)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
@@ -93,13 +93,13 @@ export async function POST(req: NextRequest) {
 
     // If status is immediately set to 'Published', also auto-sync to contents inventory if requested
     if (cleanStatus === 'Published') {
-      db.prepare(`
+      await db.prepare(`
         INSERT INTO contents (user_id, title, description, platform, category, published_at, status)
         VALUES (?, ?, ?, ?, ?, ?, 'Published')
       `).run(session.id, cleanTitle, description?.trim() || null, cleanPlatform, cleanCategory, scheduled_at);
     }
 
-    const createdPlan = db.prepare('SELECT * FROM content_plans WHERE id = ?').get(planId);
+    const createdPlan = await db.prepare('SELECT * FROM content_plans WHERE id = ?').get(planId);
 
     return NextResponse.json({ plan: createdPlan, message: 'Plan created successfully' }, { status: 201 });
   } catch (error: any) {

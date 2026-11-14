@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     const db = getDb();
 
     // 3. Check duplicate email
-    const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(cleanEmail);
+    const existing = await db.prepare('SELECT id FROM users WHERE email = ?').get(cleanEmail);
     if (existing) {
       return NextResponse.json(
         { error: 'An account with this email address already exists' },
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     const passwordHash = await hashPassword(password);
 
     // 5. Insert new creator user (default role is creator for self-registration)
-    const result = db.prepare(`
+    const result = await db.prepare(`
       INSERT INTO users (name, email, password_hash, role, status)
       VALUES (?, ?, ?, 'creator', 'active')
     `).run(name.trim(), cleanEmail, passwordHash);
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
     const userId = Number(result.lastInsertRowid);
 
     // 6. Log audit event
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO audit_logs (user_id, action, details, ip_address)
       VALUES (?, 'USER_REGISTERED', ?, ?)
     `).run(

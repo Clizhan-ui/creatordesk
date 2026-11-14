@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   const userId = session.id;
 
   // 1. Overall Aggregated Totals
-  const totals = db.prepare(`
+  const totals = (await db.prepare(`
     SELECT 
       COALESCE(SUM(views), 0) as total_views,
       COALESCE(SUM(likes), 0) as total_likes,
@@ -25,13 +25,13 @@ export async function GET(req: NextRequest) {
       COALESCE(MAX(followers_count), 0) as latest_followers
     FROM content_analytics
     WHERE user_id = ?
-  `).get(userId) as {
+  `).get(userId)) as {
     total_views: number;
     total_likes: number;
     total_comments: number;
     total_shares: number;
     latest_followers: number;
-  };
+  } || { total_views: 0, total_likes: 0, total_comments: 0, total_shares: 0, latest_followers: 0 };
 
   // Engagement Rate = (likes + comments + shares) / views * 100
   const totalEngagement = totals.total_likes + totals.total_comments + totals.total_shares;
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
     : 0;
 
   // 2. Cross-Platform Comparison
-  const platformComparison = db.prepare(`
+  const platformComparison = (await db.prepare(`
     SELECT 
       c.platform,
       COALESCE(SUM(a.views), 0) as views,
@@ -52,10 +52,10 @@ export async function GET(req: NextRequest) {
     LEFT JOIN content_analytics a ON c.id = a.content_id
     WHERE c.user_id = ?
     GROUP BY c.platform
-  `).all(userId);
+  `).all(userId)) || [];
 
   // 3. Top Performing Content Ranking
-  const topContent = db.prepare(`
+  const topContent = (await db.prepare(`
     SELECT 
       c.id, c.title, c.platform, c.category, c.thumbnail_url,
       COALESCE(SUM(a.views), 0) as views,
@@ -68,24 +68,24 @@ export async function GET(req: NextRequest) {
     GROUP BY c.id
     ORDER BY views DESC
     LIMIT 5
-  `).all(userId);
+  `).all(userId)) || [];
 
   // 4. Timeline / Historical trend
-  const timeline = db.prepare(`
+  const timeline = (await db.prepare(`
     SELECT 
-      strftime('%Y-%m-%d', recorded_at) as date,
+      SUBSTR(CAST(recorded_at AS TEXT), 1, 10) as date,
       SUM(views) as views,
       SUM(likes + comments + shares) as engagement,
       MAX(followers_count) as followers
     FROM content_analytics
     WHERE user_id = ?
-    GROUP BY strftime('%Y-%m-%d', recorded_at)
+    GROUP BY SUBSTR(CAST(recorded_at AS TEXT), 1, 10)
     ORDER BY date ASC
     LIMIT 14
-  `).all(userId);
+  `).all(userId)) || [];
 
   // 5. Recent Analytics Entry Logs
-  const logs = db.prepare(`
+  const logs = (await db.prepare(`
     SELECT 
       a.*,
       c.title as content_title,
@@ -95,7 +95,7 @@ export async function GET(req: NextRequest) {
     WHERE a.user_id = ?
     ORDER BY a.recorded_at DESC
     LIMIT 20
-  `).all(userId) as ContentAnalytics[];
+  `).all(userId)) as ContentAnalytics[] || [];
 
   return NextResponse.json({
     totals: {
@@ -135,7 +135,7 @@ export async function POST(req: NextRequest) {
     const db = getDb();
 
     // Verify user owns this content (IDOR protection)
-    const content = db.prepare('SELECT id, user_id FROM contents WHERE id = ?').get(contentId) as
+    const content = (await db.prepare('SELECT id, user_id FROM contents WHERE id = ?').get(contentId)) as
       | { id: number; user_id: number }
       | undefined;
 
@@ -149,7 +149,7 @@ export async function POST(req: NextRequest) {
 
     const dateVal = recorded_at || new Date().toISOString();
 
-    const result = db.prepare(`
+    const result = await db.prepare(`
       INSERT INTO content_analytics (content_id, user_id, views, likes, comments, shares, followers_count, recorded_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
@@ -163,7 +163,7 @@ export async function POST(req: NextRequest) {
       dateVal
     );
 
-    const inserted = db.prepare('SELECT * FROM content_analytics WHERE id = ?').get(result.lastInsertRowid);
+    const inserted = await db.prepare('SELECT * FROM content_analytics WHERE id = ?').get(result.lastInsertRowid);
 
     return NextResponse.json({ log: inserted, message: 'Analytics recorded successfully' }, { status: 201 });
   } catch (error: any) {

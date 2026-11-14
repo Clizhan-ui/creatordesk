@@ -20,7 +20,7 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
 
   try {
     const db = getDb();
-    const existing = db.prepare('SELECT id, user_id FROM contents WHERE id = ?').get(contentId) as
+    const existing = (await db.prepare('SELECT id, user_id FROM contents WHERE id = ?').get(contentId)) as
       | { id: number; user_id: number }
       | undefined;
 
@@ -46,7 +46,7 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
       ? status
       : 'Draft';
 
-    db.prepare(`
+    await db.prepare(`
       UPDATE contents
       SET title = ?, description = ?, thumbnail_url = ?, platform = ?, category = ?, content_url = ?, published_at = ?, status = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ? AND user_id = ?
@@ -63,7 +63,7 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
       session.id
     );
 
-    const updated = db.prepare('SELECT * FROM contents WHERE id = ?').get(contentId);
+    const updated = await db.prepare('SELECT * FROM contents WHERE id = ?').get(contentId);
 
     return NextResponse.json({ content: updated, message: 'Content updated successfully' });
   } catch (error: any) {
@@ -86,7 +86,7 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
 
   try {
     const db = getDb();
-    const existing = db.prepare('SELECT id, user_id FROM contents WHERE id = ?').get(contentId) as
+    const existing = (await db.prepare('SELECT id, user_id FROM contents WHERE id = ?').get(contentId)) as
       | { id: number; user_id: number }
       | undefined;
 
@@ -98,7 +98,7 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
       return NextResponse.json({ error: 'Forbidden: You do not own this content' }, { status: 403 });
     }
 
-    db.prepare('DELETE FROM contents WHERE id = ? AND user_id = ?').run(contentId, session.id);
+    await db.prepare('DELETE FROM contents WHERE id = ? AND user_id = ?').run(contentId, session.id);
 
     return NextResponse.json({ success: true, message: 'Content deleted successfully' });
   } catch (error: any) {

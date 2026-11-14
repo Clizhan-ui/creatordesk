@@ -16,7 +16,7 @@ export async function GET() {
   const db = getDb();
 
   // Aggregate user statistics
-  const users = db.prepare(`
+  const users = (await db.prepare(`
     SELECT 
       u.id, u.name, u.email, u.role, u.status, u.created_at,
       COUNT(DISTINCT c.id) as content_count,
@@ -28,17 +28,23 @@ export async function GET() {
     LEFT JOIN content_analytics a ON c.id = a.content_id
     GROUP BY u.id
     ORDER BY u.created_at DESC
-  `).all();
+  `).all()) || [];
 
   // System KPI metrics
-  const kpis = db.prepare(`
+  const kpis = (await db.prepare(`
     SELECT 
       (SELECT COUNT(*) FROM users) as total_users,
       (SELECT COUNT(*) FROM users WHERE status = 'active' AND role = 'creator') as active_creators,
       (SELECT COUNT(*) FROM users WHERE status = 'suspended') as suspended_users,
       (SELECT COUNT(*) FROM contents) as total_contents,
       (SELECT COALESCE(SUM(views), 0) FROM content_analytics) as total_system_views
-  `).get() as any;
+  `).get()) as any || {
+    total_users: 0,
+    active_creators: 0,
+    suspended_users: 0,
+    total_contents: 0,
+    total_system_views: 0,
+  };
 
   return NextResponse.json({ users, kpis });
 }

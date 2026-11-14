@@ -78,7 +78,7 @@ export async function getSession(): Promise<SessionUser | null> {
 
     // Verify account is still active in database
     const db = getDb();
-    const row = db.prepare('SELECT id, status, role FROM users WHERE id = ?').get(user.id) as
+    const row = (await db.prepare('SELECT id, status, role FROM users WHERE id = ?').get(user.id)) as
       | { id: number; status: string; role: string }
       | undefined;
 
@@ -110,57 +110,32 @@ export function clearSessionCookie() {
   cookieStore.delete(COOKIE_NAME);
 }
 
-// Rate Limiting for Security
+// In-Memory Rate Limiting for Fast, Zero-Dependency Edge & Serverless Security
+const rateLimitMap = new Map<string, { attempts: number; lastAttempt: number }>();
+
 export function checkRateLimit(
   identifier: string,
   maxAttempts = 5,
   windowMs = 15 * 60 * 1000 // 15 minutes window
 ): { allowed: boolean; remainingAttempts: number; retryAfterSec?: number } {
-  const db = getDb();
   const now = Date.now();
-  const existing = db
-    .prepare('SELECT attempts, last_attempt_at FROM login_attempts WHERE identifier = ?')
-    .get(identifier) as { attempts: number; last_attempt_at: number } | undefined;
+  const entry = rateLimitMap.get(identifier);
 
-  if (!existing) {
-    db.prepare('INSERT INTO login_attempts (identifier, attempts, last_attempt_at) VALUES (?, 1, ?)').run(
-      identifier,
-      now
-    );
+  if (!entry || now - entry.lastAttempt > windowMs) {
+    rateLimitMap.set(identifier, { attempts: 1, lastAttempt: now });
     return { allowed: true, remainingAttempts: maxAttempts - 1 };
   }
 
-  // If window has passed, reset counter
-  if (now - existing.last_attempt_at > windowMs) {
-    db.prepare('UPDATE login_attempts SET attempts = 1, last_attempt_at = ? WHERE identifier = ?').run(
-      now,
-      identifier
-    );
-    return { allowed: true, remainingAttempts: maxAttempts - 1 };
-  }
-
-  // If exceeded limit
-  if (existing.attempts >= maxAttempts) {
-    const retryAfterSec = Math.ceil((windowMs - (now - existing.last_attempt_at)) / 1000);
+  if (entry.attempts >= maxAttempts) {
+    const retryAfterSec = Math.ceil((windowMs - (now - entry.lastAttempt)) / 1000);
     return { allowed: false, remainingAttempts: 0, retryAfterSec };
   }
 
-  // Increment attempt
-  const nextAttempts = existing.attempts + 1;
-  db.prepare('UPDATE login_attempts SET attempts = ?, last_attempt_at = ? WHERE identifier = ?').run(
-    nextAttempts,
-    now,
-    identifier
-  );
-
-  return { allowed: true, remainingAttempts: maxAttempts - nextAttempts };
+  entry.attempts += 1;
+  entry.lastAttempt = now;
+  return { allowed: true, remainingAttempts: maxAttempts - entry.attempts };
 }
 
 export function resetRateLimit(identifier: string) {
-  try {
-    const db = getDb();
-    db.prepare('DELETE FROM login_attempts WHERE identifier = ?').run(identifier);
-  } catch {
-    // Ignore
-  }
+  rateLimitMap.delete(identifier);
 }

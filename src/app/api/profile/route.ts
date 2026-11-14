@@ -9,7 +9,7 @@ export async function GET() {
   }
 
   const db = getDb();
-  const user = db.prepare(`
+  const user = await db.prepare(`
     SELECT id, name, email, role, bio, avatar_url, status, created_at, updated_at
     FROM users WHERE id = ?
   `).get(session.id);
@@ -36,13 +36,13 @@ export async function PUT(req: NextRequest) {
     }
 
     const db = getDb();
-    db.prepare(`
+    await db.prepare(`
       UPDATE users
       SET name = ?, bio = ?, avatar_url = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `).run(name.trim(), bio?.trim() || null, avatar_url?.trim() || null, session.id);
 
-    const updated = db.prepare(`
+    const updated = await db.prepare(`
       SELECT id, name, email, role, bio, avatar_url, status, created_at, updated_at
       FROM users WHERE id = ?
     `).get(session.id);

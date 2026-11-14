@@ -22,7 +22,7 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
     const db = getDb();
 
     // Verify ownership
-    const existing = db.prepare('SELECT id, user_id FROM content_ideas WHERE id = ?').get(ideaId) as
+    const existing = (await db.prepare('SELECT id, user_id FROM content_ideas WHERE id = ?').get(ideaId)) as
       | { id: number; user_id: number }
       | undefined;
 
@@ -48,13 +48,13 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
       ? status
       : 'New Idea';
 
-    db.prepare(`
+    await db.prepare(`
       UPDATE content_ideas
       SET title = ?, description = ?, category = ?, platform = ?, status = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ? AND user_id = ?
     `).run(cleanTitle, description?.trim() || null, cleanCategory, cleanPlatform, cleanStatus, ideaId, session.id);
 
-    const updated = db.prepare('SELECT * FROM content_ideas WHERE id = ?').get(ideaId);
+    const updated = await db.prepare('SELECT * FROM content_ideas WHERE id = ?').get(ideaId);
 
     return NextResponse.json({ idea: updated, message: 'Idea updated successfully' });
   } catch (error: any) {
@@ -79,7 +79,7 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
     const db = getDb();
 
     // Verify ownership
-    const existing = db.prepare('SELECT id, user_id FROM content_ideas WHERE id = ?').get(ideaId) as
+    const existing = (await db.prepare('SELECT id, user_id FROM content_ideas WHERE id = ?').get(ideaId)) as
       | { id: number; user_id: number }
       | undefined;
 
@@ -91,7 +91,7 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
       return NextResponse.json({ error: 'Forbidden: You do not own this content idea' }, { status: 403 });
     }
 
-    db.prepare('DELETE FROM content_ideas WHERE id = ? AND user_id = ?').run(ideaId, session.id);
+    await db.prepare('DELETE FROM content_ideas WHERE id = ? AND user_id = ?').run(ideaId, session.id);
 
     return NextResponse.json({ success: true, message: 'Idea deleted successfully' });
   } catch (error: any) {

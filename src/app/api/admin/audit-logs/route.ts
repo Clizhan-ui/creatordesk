@@ -14,7 +14,7 @@ export async function GET() {
   }
 
   const db = getDb();
-  const logs = db.prepare(`
+  const logs = (await db.prepare(`
     SELECT 
       l.*,
       u.name as user_name,
@@ -23,7 +23,7 @@ export async function GET() {
     LEFT JOIN users u ON l.user_id = u.id
     ORDER BY l.created_at DESC
     LIMIT 50
-  `).all();
+  `).all()) || [];
 
   return NextResponse.json({ logs });
 }

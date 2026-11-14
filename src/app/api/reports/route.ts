@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
 
   query += ' ORDER BY views DESC, c.created_at DESC';
 
-  const rows = db.prepare(query).all(...params) as any[];
+  const rows = (await db.prepare(query).all(...params)) as any[] || [];
 
   // Aggregations
   let totalViews = 0;

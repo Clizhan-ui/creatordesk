@@ -33,10 +33,10 @@ export async function POST(req: NextRequest) {
     }
 
     const db = getDb();
-    const user = db.prepare(`
+    const user = (await db.prepare(`
       SELECT id, name, email, password_hash, role, status, avatar_url
       FROM users WHERE email = ?
-    `).get(cleanEmail) as User | undefined;
+    `).get(cleanEmail)) as User | undefined;
 
     if (!user || !user.password_hash) {
       return NextResponse.json(
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
     resetRateLimit(rateLimitKey);
 
     // Audit log
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO audit_logs (user_id, action, details, ip_address)
       VALUES (?, 'USER_LOGIN', 'User logged in successfully', ?)
     `).run(user.id, ip);

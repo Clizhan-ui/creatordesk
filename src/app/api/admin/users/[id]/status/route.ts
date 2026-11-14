@@ -36,7 +36,7 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
     }
 
     const db = getDb();
-    const existing = db.prepare('SELECT id, email FROM users WHERE id = ?').get(targetUserId) as
+    const existing = (await db.prepare('SELECT id, email FROM users WHERE id = ?').get(targetUserId)) as
       | { id: number; email: string }
       | undefined;
 
@@ -44,10 +44,10 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    db.prepare('UPDATE users SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(status, targetUserId);
+    await db.prepare('UPDATE users SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(status, targetUserId);
 
     // Audit log
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO audit_logs (user_id, action, details, ip_address)
       VALUES (?, 'ADMIN_USER_STATUS_CHANGE', ?, ?)
     `).run(

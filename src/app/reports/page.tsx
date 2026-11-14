@@ -18,8 +18,6 @@ import {
   FileSpreadsheet
 } from 'lucide-react';
 import { SessionUser } from '@/types';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 
 export default function ReportsPage() {
   const [user, setUser] = useState<SessionUser | null>(null);
@@ -158,100 +156,111 @@ export default function ReportsPage() {
     document.body.removeChild(link);
   };
 
-  // PDF Export using jsPDF and autoTable
-  const exportToPDF = () => {
+  // PDF Export
+  const exportToPDF = async () => {
     if (!reportData?.items || reportData.items.length === 0) {
       alert('No data to export for current filter.');
       return;
     }
 
-    const doc = new jsPDF();
+    try {
+      // Dynamic on-demand script loader for jsPDF & autoTable (bypasses webpack build bundling)
+      const loadScript = (src: string) => {
+        return new Promise<void>((resolve, reject) => {
+          if (document.querySelector(`script[src="${src}"]`)) {
+            resolve();
+            return;
+          }
+          const script = document.createElement('script');
+          script.src = src;
+          script.onload = () => resolve();
+          script.onerror = () => reject(new Error(`Failed to load ${src}`));
+          document.head.appendChild(script);
+        });
+      };
 
-    // Brand Header
-    doc.setFillColor(79, 70, 229); // Brand Indigo
-    doc.rect(0, 0, 210, 24, 'F');
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js');
 
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.text('CreatorDesk - Digital Content Performance Report', 14, 15);
+      const { jsPDF } = (window as any).jspdf;
+      const doc = new jsPDF();
 
-    // Meta details
-    doc.setTextColor(51, 65, 85);
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Creator: ${user?.name || 'Creator'} (${user?.email})`, 14, 32);
-    doc.text(`Generated On: ${new Date().toLocaleString()}`, 14, 37);
-    doc.text(
-      `Period: ${startDate ? startDate : 'Start'} to ${endDate ? endDate : 'Present'} | Platform: ${selectedPlatform} | Status: ${selectedStatus}`,
-      14,
-      42
-    );
+      // Brand Header
+      doc.setFillColor(79, 70, 229);
+      doc.rect(0, 0, 210, 24, 'F');
 
-    // Summary Box
-    doc.setFillColor(248, 250, 252);
-    doc.roundedRect(14, 46, 182, 22, 3, 3, 'F');
-    doc.setDrawColor(226, 232, 240);
-    doc.roundedRect(14, 46, 182, 22, 3, 3, 'D');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('CreatorDesk - Digital Content Performance Report', 14, 15);
 
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(100, 116, 139);
-    doc.text('TOTAL CONTENT', 20, 53);
-    doc.text('TOTAL VIEWS', 60, 53);
-    doc.text('TOTAL LIKES', 105, 53);
-    doc.text('COMMENTS', 140, 53);
-    doc.text('ENGAGEMENT RATE', 165, 53);
-
-    doc.setFontSize(11);
-    doc.setTextColor(15, 23, 42);
-    doc.text(String(summary.totalContent), 20, 62);
-    doc.text(Number(summary.totalViews).toLocaleString(), 60, 62);
-    doc.text(Number(summary.totalLikes).toLocaleString(), 105, 62);
-    doc.text(Number(summary.totalComments).toLocaleString(), 140, 62);
-    doc.text(`${summary.engagementRate}%`, 165, 62);
-
-    // Table
-    const tableHeaders = [['#', 'Title', 'Platform', 'Category', 'Status', 'Views', 'Likes', 'Comments', 'Eng. %']];
-    const tableBody = reportData.items.map((item: any, i: number) => {
-      const engSum = (item.likes || 0) + (item.comments || 0) + (item.shares || 0);
-      const engRate = item.views > 0 ? ((engSum / item.views) * 100).toFixed(1) : '0';
-      return [
-        String(i + 1),
-        item.title.length > 32 ? item.title.slice(0, 32) + '...' : item.title,
-        item.platform,
-        item.category,
-        item.status,
-        Number(item.views || 0).toLocaleString(),
-        Number(item.likes || 0).toLocaleString(),
-        Number(item.comments || 0).toLocaleString(),
-        `${engRate}%`,
-      ];
-    });
-
-    autoTable(doc, {
-      head: tableHeaders,
-      body: tableBody,
-      startY: 74,
-      styles: { fontSize: 8, cellPadding: 2.5 },
-      headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontStyle: 'bold' },
-      alternateRowStyles: { fillColor: [248, 250, 252] },
-    });
-
-    // Footer
-    const pageCount = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.setTextColor(148, 163, 184);
+      // Meta details
+      doc.setTextColor(51, 65, 85);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Creator: ${user?.name || 'Creator'} (${user?.email})`, 14, 32);
+      doc.text(`Generated On: ${new Date().toLocaleString()}`, 14, 37);
       doc.text(
-        `CreatorDesk Platform © ${new Date().getFullYear()} - Page ${i} of ${pageCount}`,
+        `Period: ${startDate ? startDate : 'Start'} to ${endDate ? endDate : 'Present'} | Platform: ${selectedPlatform} | Status: ${selectedStatus}`,
         14,
-        doc.internal.pageSize.height - 10
+        42
       );
-    }
 
-    doc.save(`CreatorDesk_Report_${new Date().toISOString().slice(0, 10)}.pdf`);
+      // Summary Box
+      doc.setFillColor(248, 250, 252);
+      doc.roundedRect(14, 46, 182, 22, 3, 3, 'F');
+      doc.setDrawColor(226, 232, 240);
+      doc.roundedRect(14, 46, 182, 22, 3, 3, 'D');
+
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(100, 116, 139);
+      doc.text('TOTAL CONTENT', 20, 53);
+      doc.text('TOTAL VIEWS', 60, 53);
+      doc.text('TOTAL LIKES', 105, 53);
+      doc.text('COMMENTS', 140, 53);
+      doc.text('ENGAGEMENT RATE', 165, 53);
+
+      doc.setFontSize(11);
+      doc.setTextColor(15, 23, 42);
+      doc.text(String(summary.totalContent), 20, 62);
+      doc.text(Number(summary.totalViews).toLocaleString(), 60, 62);
+      doc.text(Number(summary.totalLikes).toLocaleString(), 105, 62);
+      doc.text(Number(summary.totalComments).toLocaleString(), 140, 62);
+      doc.text(`${summary.engagementRate}%`, 165, 62);
+
+      // Table
+      const tableHeaders = [['#', 'Title', 'Platform', 'Category', 'Status', 'Views', 'Likes', 'Comments', 'Eng. %']];
+      const tableBody = reportData.items.map((item: any, i: number) => {
+        const engSum = (item.likes || 0) + (item.comments || 0) + (item.shares || 0);
+        const engRate = item.views > 0 ? ((engSum / item.views) * 100).toFixed(1) : '0';
+        return [
+          String(i + 1),
+          item.title.length > 32 ? item.title.slice(0, 32) + '...' : item.title,
+          item.platform,
+          item.category,
+          item.status,
+          Number(item.views || 0).toLocaleString(),
+          Number(item.likes || 0).toLocaleString(),
+          Number(item.comments || 0).toLocaleString(),
+          `${engRate}%`,
+        ];
+      });
+
+      (doc as any).autoTable({
+        head: tableHeaders,
+        body: tableBody,
+        startY: 74,
+        styles: { fontSize: 8, cellPadding: 2.5 },
+        headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+      });
+
+      doc.save(`CreatorDesk_Report_${new Date().toISOString().slice(0, 10)}.pdf`);
+    } catch {
+      // Clean fallback: native browser print dialog (Save as PDF)
+      window.print();
+    }
   };
 
   const summary = reportData?.summary || {

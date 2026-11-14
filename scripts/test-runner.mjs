@@ -159,7 +159,7 @@ assert(updatedContent.category === 'Web Dev', 'Content updated category successf
 const idorContentDelete = db.prepare('DELETE FROM contents WHERE id = ? AND user_id = ?').run(newContentId, 3);
 assert(idorContentDelete.changes === 0, 'User 3 cannot delete User 2 content item (IDOR protected)');
 
-// Test 10: Performance Analytics Recording & Engagement Calculation
+// Test 10: Performance Analytics Logging & Rate Calculations:
 console.log('\n[10] Performance Analytics Logging & Rate Calculations:');
 const logMetric = db.prepare(`
   INSERT INTO content_analytics (content_id, user_id, views, likes, comments, shares, followers_count, recorded_at)
@@ -178,6 +178,21 @@ assert(engagementRate === '9.50', `Calculated engagement rate matches expected: 
 // IDOR check on analytics delete
 const idorAnalyticsDelete = db.prepare('DELETE FROM content_analytics WHERE id = ? AND user_id = ?').run(logId, 3);
 assert(idorAnalyticsDelete.changes === 0, 'User 3 cannot delete User 2 analytics log');
+
+// Test 11: Reports Aggregation & Filter Correctness
+console.log('\n[11] Reports & Export Query Aggregations:');
+const reportQuery = db.prepare(`
+  SELECT 
+    c.id, c.title, c.platform,
+    COALESCE(SUM(a.views), 0) as views,
+    COALESCE(SUM(a.likes), 0) as likes
+  FROM contents c
+  LEFT JOIN content_analytics a ON c.id = a.content_id
+  WHERE c.user_id = ? AND c.platform = 'YouTube'
+  GROUP BY c.id
+`).all(2);
+assert(reportQuery.length > 0, 'Report filters by platform successfully');
+assert(reportQuery[0].platform === 'YouTube', 'Report result only returns filtered YouTube platform content');
 
 console.log('\n==============================================');
 console.log(`Summary: ${passedTests}/${totalTests} Tests Passed (${failedTests} Failed)`);

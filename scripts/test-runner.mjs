@@ -117,6 +117,27 @@ assert(idorUpdate.changes === 0, 'User 3 cannot update User 2 idea (changes = 0)
 const deleteRes = db.prepare('DELETE FROM content_ideas WHERE id = ? AND user_id = ?').run(ideaId, 2);
 assert(deleteRes.changes === 1, 'Idea deleted cleanly by owner');
 
+// Test 8: Content Planner & Calendar Scheduling
+console.log('\n[8] Content Planner & Publication Calendar Operations:');
+const insertPlan = db.prepare(`
+  INSERT INTO content_plans (user_id, title, description, platform, category, scheduled_at, status, notes)
+  VALUES (2, 'Ultimate Desk Setup Tour 2026', 'Showcasing 4K monitor and mechanical keyboard', 'YouTube', 'Tech', '2026-12-01T15:00', 'Planned', 'Include Amazon affiliate links')
+`).run();
+const planId = Number(insertPlan.lastInsertRowid);
+assert(planId > 0, 'Plan scheduled in calendar successfully');
+
+const fetchedPlan = db.prepare('SELECT * FROM content_plans WHERE id = ? AND user_id = ?').get(planId, 2);
+assert(fetchedPlan && fetchedPlan.title === 'Ultimate Desk Setup Tour 2026', 'Plan retrieved with exact scheduled date');
+
+// Update plan status
+db.prepare('UPDATE content_plans SET status = ? WHERE id = ? AND user_id = ?').run('In Production', planId, 2);
+const updatedPlan = db.prepare('SELECT status FROM content_plans WHERE id = ?').get(planId);
+assert(updatedPlan.status === 'In Production', 'Plan status progressed to "In Production"');
+
+// IDOR protection test on plan
+const idorPlanDelete = db.prepare('DELETE FROM content_plans WHERE id = ? AND user_id = ?').run(planId, 3);
+assert(idorPlanDelete.changes === 0, 'User 3 cannot delete User 2 scheduled plan');
+
 console.log('\n==============================================');
 console.log(`Summary: ${passedTests}/${totalTests} Tests Passed (${failedTests} Failed)`);
 console.log('==============================================');

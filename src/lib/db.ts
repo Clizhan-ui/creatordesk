@@ -10,7 +10,8 @@ export function getDb(): any {
     if (!pgClient) {
       pgClient = postgres(process.env.DATABASE_URL, {
         ssl: 'require',
-        max: 10,
+        prepare: false, // Mandatory for Supabase transaction pooler (port 6543)
+        max: 5,
         idle_timeout: 20,
         connect_timeout: 10,
       });

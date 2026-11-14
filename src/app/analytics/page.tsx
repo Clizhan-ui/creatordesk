@@ -19,18 +19,7 @@ import {
   Percent,
   Calendar
 } from 'lucide-react';
-import { 
-  ResponsiveContainer, 
-  AreaChart, 
-  Area, 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  Tooltip, 
-  Legend, 
-  Cell 
-} from 'recharts';
+import { TrendAreaChart, PlatformBarChart } from '@/components/Charts';
 import { ContentItem, ContentAnalytics, SessionUser } from '@/types';
 
 export default function AnalyticsPage() {
@@ -264,26 +253,8 @@ export default function AnalyticsPage() {
               <h2 className="text-base font-bold text-slate-900">Views & Engagement Over Time</h2>
               <p className="text-xs text-slate-500">Historical performance trajectory</p>
             </div>
-            <div className="h-64 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={analyticsData?.timeline || []}>
-                  <defs>
-                    <linearGradient id="anViews" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.35} />
-                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="anEngage" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="date" stroke="#94a3b8" fontSize={10} tickLine={false} />
-                  <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} />
-                  <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '11px' }} />
-                  <Area type="monotone" dataKey="views" stroke="#6366f1" fillOpacity={1} fill="url(#anViews)" name="Views" strokeWidth={2} />
-                  <Area type="monotone" dataKey="engagement" stroke="#10b981" fillOpacity={1} fill="url(#anEngage)" name="Engagement" strokeWidth={2} />
-                </AreaChart>
-              </ResponsiveContainer>
+            <div className="w-full">
+              <TrendAreaChart data={analyticsData?.timeline || []} />
             </div>
           </div>
 
@@ -293,22 +264,11 @@ export default function AnalyticsPage() {
               <h2 className="text-base font-bold text-slate-900">Cross-Platform Views Comparison</h2>
               <p className="text-xs text-slate-500">Audience delivery by distribution channel</p>
             </div>
-            <div className="h-64 w-full">
+            <div className="w-full">
               {analyticsData?.platformComparison && analyticsData.platformComparison.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={analyticsData.platformComparison}>
-                    <XAxis dataKey="platform" stroke="#94a3b8" fontSize={11} tickLine={false} />
-                    <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} />
-                    <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '11px' }} />
-                    <Bar dataKey="views" name="Total Views" radius={[6, 6, 0, 0]}>
-                      {analyticsData.platformComparison.map((entry: any, index: number) => (
-                        <Cell key={`bar-${index}`} fill={platformColors[entry.platform] || '#6366f1'} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+                <PlatformBarChart data={analyticsData.platformComparison} metric="views" />
               ) : (
-                <div className="h-full flex items-center justify-center text-xs text-slate-400">
+                <div className="h-44 flex items-center justify-center text-xs text-slate-400">
                   No platform data logged yet.
                 </div>
               )}

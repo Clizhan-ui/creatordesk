@@ -22,17 +22,7 @@ import {
   ChevronRight,
   ExternalLink
 } from 'lucide-react';
-import { 
-  AreaChart, 
-  Area, 
-  XAxis, 
-  YAxis, 
-  Tooltip, 
-  ResponsiveContainer, 
-  BarChart, 
-  Bar, 
-  Cell 
-} from 'recharts';
+import { TrendAreaChart, PlatformBarChart } from '@/components/Charts';
 import { DashboardStats, SessionUser } from '@/types';
 
 export default function DashboardPage() {
@@ -253,28 +243,8 @@ export default function DashboardPage() {
               </Link>
             </div>
 
-            <div className="h-64 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={stats?.performanceTrend || []}>
-                  <defs>
-                    <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="colorEngagement" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#ec4899" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#ec4899" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="date" stroke="#94a3b8" fontSize={11} tickLine={false} />
-                  <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '12px' }}
-                  />
-                  <Area type="monotone" dataKey="views" stroke="#6366f1" strokeWidth={2} fillOpacity={1} fill="url(#colorViews)" name="Views" />
-                  <Area type="monotone" dataKey="engagement" stroke="#ec4899" strokeWidth={2} fillOpacity={1} fill="url(#colorEngagement)" name="Engagement" />
-                </AreaChart>
-              </ResponsiveContainer>
+            <div className="w-full">
+              <TrendAreaChart data={stats?.performanceTrend || []} />
             </div>
           </div>
 
@@ -285,21 +255,8 @@ export default function DashboardPage() {
               <p className="text-xs text-slate-500 mb-6">Distribution of published & active content</p>
 
               {stats?.platformBreakdown && stats.platformBreakdown.length > 0 ? (
-                <div className="h-44 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={stats.platformBreakdown}>
-                      <XAxis dataKey="platform" stroke="#94a3b8" fontSize={10} tickLine={false} />
-                      <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '11px' }}
-                      />
-                      <Bar dataKey="count" name="Total Contents" radius={[4, 4, 0, 0]}>
-                        {stats.platformBreakdown.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+                <div className="w-full">
+                  <PlatformBarChart data={stats.platformBreakdown} metric="count" />
                 </div>
               ) : (
                 <div className="text-center py-10 text-slate-400 text-xs">

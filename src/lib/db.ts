@@ -1,3 +1,4 @@
+import postgres from 'postgres';
 import path from 'path';
 import fs from 'fs';
 
@@ -7,7 +8,6 @@ let sqliteInstance: any = null;
 export function getDb(): any {
   if (process.env.DATABASE_URL) {
     if (!pgClient) {
-      const postgres = require('postgres');
       pgClient = postgres(process.env.DATABASE_URL, {
         ssl: 'require',
         max: 10,
@@ -80,7 +80,7 @@ export function getDb(): any {
   return sqliteInstance;
 }
 
-export function initSchema(db: DatabaseSync) {
+export function initSchema(db: any) {
   db.exec(`
     -- Users table
     CREATE TABLE IF NOT EXISTS users (

@@ -94,6 +94,28 @@ export default function ContentPage() {
     }
   };
 
+  const extractYouTubeId = (url: string): string | null => {
+    if (!url) return null;
+    const regExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=|shorts\/)|youtu\.be\/)([^"&?\/\s]{11})/i;
+    const match = url.match(regExp);
+    return match && match[1] ? match[1] : null;
+  };
+
+  const handleContentUrlChange = (url: string) => {
+    setModalContentUrl(url);
+    const ytId = extractYouTubeId(url);
+    if (ytId) {
+      if (!modalThumbnailUrl || modalThumbnailUrl.includes('img.youtube.com')) {
+        setModalThumbnailUrl(`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`);
+      }
+      setModalPlatform('YouTube');
+    } else if (url.includes('tiktok.com')) {
+      if (modalPlatform !== 'TikTok') setModalPlatform('TikTok');
+    } else if (url.includes('instagram.com')) {
+      if (modalPlatform !== 'Instagram') setModalPlatform('Instagram');
+    }
+  };
+
   const openCreateModal = () => {
     setEditingContent(null);
     setModalTitle('');
@@ -367,21 +389,25 @@ export default function ContentPage() {
                 <div>
                   {/* Thumbnail / Header */}
                   <div className="relative h-44 w-full bg-slate-800 overflow-hidden group">
-                    {content.thumbnail_url ? (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img
-                        src={content.thumbnail_url}
-                        alt={content.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-tr from-slate-900 to-indigo-950 text-slate-400">
-                        <Video className="w-10 h-10 mb-1 text-slate-500" />
-                        <span className="text-[11px] font-medium tracking-wider uppercase text-slate-500">
-                          {content.platform}
-                        </span>
-                      </div>
-                    )}
+                    {(() => {
+                      const ytId = extractYouTubeId(content.content_url || '');
+                      const effectiveThumb = content.thumbnail_url || (ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : null);
+                      return effectiveThumb ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img
+                          src={effectiveThumb}
+                          alt={content.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-tr from-slate-900 to-indigo-950 text-slate-400">
+                          <Video className="w-10 h-10 mb-1 text-slate-500" />
+                          <span className="text-[11px] font-medium tracking-wider uppercase text-slate-500">
+                            {content.platform}
+                          </span>
+                        </div>
+                      );
+                    })()}
 
                     <div className="absolute top-3 left-3 flex items-center space-x-1.5">
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border backdrop-blur-md ${getStatusBadge(content.status)}`}>
@@ -655,23 +681,61 @@ export default function ContentPage() {
                   <input
                     type="url"
                     value={modalContentUrl}
-                    onChange={(e) => setModalContentUrl(e.target.value)}
-                    placeholder="https://youtube.com/watch?v=..."
+                    onChange={(e) => handleContentUrlChange(e.target.value)}
+                    placeholder="https://youtube.com/watch?v=... atau https://youtu.be/..."
                     className="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
+                  {extractYouTubeId(modalContentUrl) && (
+                    <div className="mt-1.5 flex items-center space-x-1.5 text-xs text-emerald-600 font-medium bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                      <span>YouTube link terdeteksi! Thumbnail HQ otomatis diambil dan platform diset ke YouTube.</span>
+                    </div>
+                  )}
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                    Thumbnail Image URL
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                      Thumbnail Image URL
+                    </label>
+                    {extractYouTubeId(modalContentUrl) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const ytId = extractYouTubeId(modalContentUrl);
+                          if (ytId) setModalThumbnailUrl(`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`);
+                        }}
+                        className="text-[11px] text-indigo-600 hover:text-indigo-700 font-medium inline-flex items-center space-x-1"
+                      >
+                        <Sparkles className="w-3 h-3" />
+                        <span>Reset ke YouTube HQ</span>
+                      </button>
+                    )}
+                  </div>
                   <input
                     type="url"
                     value={modalThumbnailUrl}
                     onChange={(e) => setModalThumbnailUrl(e.target.value)}
-                    placeholder="https://images.unsplash.com/..."
+                    placeholder="https://images.unsplash.com/... atau https://img.youtube.com/..."
                     className="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
+                  {modalThumbnailUrl && (
+                    <div className="mt-2.5 relative rounded-xl overflow-hidden border border-slate-200 bg-slate-900 aspect-video max-h-44 w-full flex items-center justify-center">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={modalThumbnailUrl}
+                        alt="Thumbnail preview"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLElement).style.display = 'none';
+                        }}
+                      />
+                      <div className="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-sm text-[10px] text-white font-medium flex items-center space-x-1">
+                        <Eye className="w-3 h-3 text-indigo-300" />
+                        <span>Live Preview</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -731,9 +795,22 @@ export default function ContentPage() {
                 <p className="text-xs font-bold text-slate-800 line-clamp-1">
                   {analyticsModalContent.title}
                 </p>
-                <p className="text-[11px] text-slate-500">
-                  {analyticsModalContent.platform} • {analyticsModalContent.category}
-                </p>
+                <div className="flex items-center justify-between mt-1">
+                  <p className="text-[11px] text-slate-500">
+                    {analyticsModalContent.platform} • {analyticsModalContent.category}
+                  </p>
+                  {analyticsModalContent.content_url && (
+                    <a
+                      href={analyticsModalContent.content_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center space-x-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded-md transition"
+                    >
+                      <span>Buka di {analyticsModalContent.platform}</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </div>
               </div>
 
               <form onSubmit={handleSaveAnalytics} className="space-y-3">

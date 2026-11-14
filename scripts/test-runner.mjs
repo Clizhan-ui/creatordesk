@@ -138,6 +138,27 @@ assert(updatedPlan.status === 'In Production', 'Plan status progressed to "In Pr
 const idorPlanDelete = db.prepare('DELETE FROM content_plans WHERE id = ? AND user_id = ?').run(planId, 3);
 assert(idorPlanDelete.changes === 0, 'User 3 cannot delete User 2 scheduled plan');
 
+// Test 9: Content Management (CRUD)
+console.log('\n[9] Content Management CRUD Operations:');
+const insertContent = db.prepare(`
+  INSERT INTO contents (user_id, title, description, platform, category, content_url, status)
+  VALUES (2, 'My Full Next.js 14 Guide', 'Comprehensive guide from scratch to production', 'YouTube', 'Tech', 'https://youtube.com/watch?v=demo123', 'Published')
+`).run();
+const newContentId = Number(insertContent.lastInsertRowid);
+assert(newContentId > 0, 'Content item created successfully');
+
+const fetchedContent = db.prepare('SELECT * FROM contents WHERE id = ? AND user_id = ?').get(newContentId, 2);
+assert(fetchedContent && fetchedContent.title === 'My Full Next.js 14 Guide', 'Content retrieved accurately by owner');
+
+// Update content
+db.prepare('UPDATE contents SET category = ? WHERE id = ? AND user_id = ?').run('Web Dev', newContentId, 2);
+const updatedContent = db.prepare('SELECT category FROM contents WHERE id = ?').get(newContentId);
+assert(updatedContent.category === 'Web Dev', 'Content updated category successfully');
+
+// IDOR protection test on Content
+const idorContentDelete = db.prepare('DELETE FROM contents WHERE id = ? AND user_id = ?').run(newContentId, 3);
+assert(idorContentDelete.changes === 0, 'User 3 cannot delete User 2 content item (IDOR protected)');
+
 console.log('\n==============================================');
 console.log(`Summary: ${passedTests}/${totalTests} Tests Passed (${failedTests} Failed)`);
 console.log('==============================================');

@@ -47,13 +47,14 @@ export async function POST(req: NextRequest) {
     // 4. Hash password with bcrypt
     const passwordHash = await hashPassword(password);
 
-    // 5. Insert new creator user (default role is creator for self-registration)
-    const result = await db.prepare(`
-      INSERT INTO users (name, email, password_hash, role, status)
-      VALUES (?, ?, ?, 'creator', 'active')
+    // 5. Insert new creator user (auto-advancing ID to guarantee no sequence collision in PostgreSQL)
+    await db.prepare(`
+      INSERT INTO users (id, name, email, password_hash, role, status)
+      VALUES ((SELECT COALESCE(MAX(id), 0) + 1 FROM users), ?, ?, ?, 'creator', 'active')
     `).run(name.trim(), cleanEmail, passwordHash);
 
-    const userId = Number(result.lastInsertRowid);
+    const newUser = (await db.prepare('SELECT id FROM users WHERE email = ?').get(cleanEmail)) as { id: number };
+    const userId = Number(newUser.id);
 
     // 6. Log audit event (non-blocking)
     try {

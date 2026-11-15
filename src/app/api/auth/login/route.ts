@@ -71,11 +71,15 @@ export async function POST(req: NextRequest) {
     // Successful login: reset rate limit attempts
     resetRateLimit(rateLimitKey);
 
-    // Audit log
-    await db.prepare(`
-      INSERT INTO audit_logs (user_id, action, details, ip_address)
-      VALUES (?, 'USER_LOGIN', 'User logged in successfully', ?)
-    `).run(user.id, ip);
+    // Audit log (non-blocking)
+    try {
+      await db.prepare(`
+        INSERT INTO audit_logs (user_id, action, target_type, target_id, details, ip_address)
+        VALUES (?, 'USER_LOGIN', 'USER', ?, 'User logged in successfully', ?)
+      `).run(user.id, user.id, ip);
+    } catch (auditErr) {
+      console.warn('Audit log write warning:', auditErr);
+    }
 
     // Session token
     const sessionUser = {

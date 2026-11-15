@@ -55,15 +55,20 @@ export async function POST(req: NextRequest) {
 
     const userId = Number(result.lastInsertRowid);
 
-    // 6. Log audit event
-    await db.prepare(`
-      INSERT INTO audit_logs (user_id, action, details, ip_address)
-      VALUES (?, 'USER_REGISTERED', ?, ?)
-    `).run(
-      userId,
-      `New user registered: ${cleanEmail}`,
-      req.headers.get('x-forwarded-for') || '127.0.0.1'
-    );
+    // 6. Log audit event (non-blocking)
+    try {
+      await db.prepare(`
+        INSERT INTO audit_logs (user_id, action, target_type, target_id, details, ip_address)
+        VALUES (?, 'USER_REGISTERED', 'USER', ?, ?, ?)
+      `).run(
+        userId,
+        userId,
+        `New user registered: ${cleanEmail}`,
+        req.headers.get('x-forwarded-for') || '127.0.0.1'
+      );
+    } catch (auditErr) {
+      console.warn('Audit log write warning:', auditErr);
+    }
 
     // 7. Auto-login by generating session token and setting cookie
     const sessionUser = {

@@ -46,15 +46,20 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
 
     await db.prepare('UPDATE users SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(status, targetUserId);
 
-    // Audit log
-    await db.prepare(`
-      INSERT INTO audit_logs (user_id, action, details, ip_address)
-      VALUES (?, 'ADMIN_USER_STATUS_CHANGE', ?, ?)
-    `).run(
-      session.id,
-      `Changed status of ${existing.email} (ID #${targetUserId}) to ${status}`,
-      req.headers.get('x-forwarded-for') || '127.0.0.1'
-    );
+    // Audit log (non-blocking)
+    try {
+      await db.prepare(`
+        INSERT INTO audit_logs (user_id, action, target_type, target_id, details, ip_address)
+        VALUES (?, 'ADMIN_USER_STATUS_CHANGE', 'USER', ?, ?, ?)
+      `).run(
+        session.id,
+        targetUserId,
+        `Changed status of ${existing.email} (ID #${targetUserId}) to ${status}`,
+        req.headers.get('x-forwarded-for') || '127.0.0.1'
+      );
+    } catch (auditErr) {
+      console.warn('Audit log write warning:', auditErr);
+    }
 
     return NextResponse.json({ success: true, message: `User status changed to ${status}` });
   } catch (error: any) {

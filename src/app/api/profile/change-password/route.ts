@@ -47,11 +47,15 @@ export async function POST(req: NextRequest) {
       WHERE id = ?
     `).run(newHash, session.id);
 
-    // Audit log
-    await db.prepare(`
-      INSERT INTO audit_logs (user_id, action, details, ip_address)
-      VALUES (?, 'PASSWORD_CHANGED', 'User successfully updated password', ?)
-    `).run(session.id, req.headers.get('x-forwarded-for') || '127.0.0.1');
+    // Audit log (non-blocking)
+    try {
+      await db.prepare(`
+        INSERT INTO audit_logs (user_id, action, target_type, target_id, details, ip_address)
+        VALUES (?, 'PASSWORD_CHANGED', 'USER', ?, 'User successfully updated password', ?)
+      `).run(session.id, session.id, req.headers.get('x-forwarded-for') || '127.0.0.1');
+    } catch (auditErr) {
+      console.warn('Audit log write warning:', auditErr);
+    }
 
     return NextResponse.json({ success: true, message: 'Password changed successfully' });
   } catch (error: any) {

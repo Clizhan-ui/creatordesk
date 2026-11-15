@@ -173,6 +173,8 @@ export function initSchema(db: any) {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER,
       action TEXT NOT NULL,
+      target_type TEXT DEFAULT 'USER',
+      target_id INTEGER,
       details TEXT,
       ip_address TEXT,
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

@@ -107,7 +107,14 @@ export function setSessionCookie(token: string) {
 
 export function clearSessionCookie() {
   const cookieStore = cookies();
-  cookieStore.delete(COOKIE_NAME);
+  cookieStore.set(COOKIE_NAME, '', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 0,
+    expires: new Date(0),
+  });
 }
 
 // In-Memory Rate Limiting for Fast, Zero-Dependency Edge & Serverless Security

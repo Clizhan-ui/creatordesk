@@ -49,8 +49,8 @@ export default function RegisterPage() {
         return;
       }
 
-      router.push('/dashboard');
-      router.refresh();
+      // Clean hard navigation prevents React router concurrent hydration race conditions
+      window.location.href = '/dashboard';
     } catch {
       setError('A network error occurred. Please try again.');
       setLoading(false);

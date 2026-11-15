@@ -31,10 +31,10 @@ export default function Navbar({ user }: NavbarProps) {
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
-      router.push('/login');
-      router.refresh();
     } catch (e) {
       console.error('Logout error:', e);
+    } finally {
+      window.location.href = '/login';
     }
   };
 

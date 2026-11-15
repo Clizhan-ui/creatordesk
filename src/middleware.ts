@@ -19,6 +19,19 @@ export async function middleware(request: NextRequest) {
   response.headers.set('X-XSS-Protection', '1; mode=block');
   response.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
 
+  // If user is already authenticated and visits /login or /register, redirect cleanly to /dashboard
+  if ((pathname === '/login' || pathname === '/register') && token) {
+    try {
+      await jwtVerify(token, JWT_SECRET);
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    } catch {
+      // Stale or invalid token: clear it and proceed to login page
+      const cleanRes = NextResponse.next();
+      cleanRes.cookies.set('creatordesk_token', '', { path: '/', maxAge: 0 });
+      return cleanRes;
+    }
+  }
+
   // Protected paths check
   const isProtectedPath = ['/dashboard', '/ideas', '/planner', '/content', '/analytics', '/reports', '/profile'].some(
     (prefix) => pathname.startsWith(prefix)

@@ -33,13 +33,9 @@ export default function LoginPage() {
         return;
       }
 
-      // Check role redirection
-      if (data.user?.role === 'admin') {
-        router.push('/admin');
-      } else {
-        router.push('/dashboard');
-      }
-      router.refresh();
+      // Clean hard navigation prevents React router concurrent hydration race conditions
+      const target = data.user?.role === 'admin' ? '/admin' : '/dashboard';
+      window.location.href = target;
     } catch {
       setError('A network error occurred. Please try again.');
       setLoading(false);
